@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { Roles } from './decorator/role.decorator';
@@ -12,7 +12,8 @@ export class AuthController {
     constructor(private authService: AuthService){}
 
     @Post('/register')
-    async registerAccount(@Req() req: Request, @Body() userDTO: UserDTO): Promise<any> {
+    @UsePipes(ValidationPipe)
+    async registerAccount(@Body() userDTO: UserDTO): Promise<any> {
         return await this.authService.registerUser(userDTO);
     }
 
@@ -20,7 +21,13 @@ export class AuthController {
     async login(@Body() userDTO: UserDTO, @Res() res: Response): Promise<any> {
         const jwt = await this.authService.validateUser(userDTO);
         res.setHeader('Authorization', 'Bearer '+jwt.accessToken);
-        return res.json(jwt);
+        res.cookie('jwt', jwt.accessToken, {
+            httpOnly: true,
+            maxAge: 24 * 60 * 60 * 1000
+        })
+        return res.send({
+            message: 'success'
+        });
     }
 
     @Get('/authenticate')
@@ -36,5 +43,21 @@ export class AuthController {
     adminRoleCheck(@Req() req: Request): any {
         const user: any = req.user;
         return user;
+    }
+
+    @Get('/cookies')
+    getCookies(@Req() req: Request, @Res() res: Response): any {
+        const jwt = req.cookies['jwt'];
+        return res.send(jwt);
+    }
+
+    @Post('/logout')
+    logout(@Res() res: Response): any {
+        res.cookie('jwt', '', {
+            maxAge: 0
+        });
+        return res.send({
+            message: 'success'
+        })
     }
 }
